@@ -109,7 +109,7 @@ footer a{color:var(--navy2)}
   <section class="panel" id="p-category">
     <div class="card">
       <h2 id="catTitle">ผลสะสมเทียบแผนสะสม รายหมวด Planfin</h2>
-      <p class="note">แท่งแสดงร้อยละที่ผลสะสมสูง/ต่ำกว่าแผนสะสม · เขียว = ดีกว่าแผน (รายได้สูงกว่า / ค่าใช้จ่ายต่ำกว่า) · แดง = แย่กว่าแผน · แถบเทา = ช่วงผ่านเกณฑ์</p>
+      <p class="note">แท่งแสดงร้อยละที่ผลสะสมสูง/ต่ำกว่าแผนสะสม · <b class="pos">เขียว</b> = อยู่ในช่วง ±<span class="thrv">5</span>% · <b class="neg">แดง</b> = เกิน ±<span class="thrv">5</span>% (ทั้งสูงกว่าและต่ำกว่าแผน) · แถบเทา = ช่วงผ่านเกณฑ์</p>
       <div id="catChart" class="chart"></div>
     </div>
     <div class="card">
@@ -138,7 +138,7 @@ footer a{color:var(--navy2)}
   <section class="panel" id="p-heatmap">
     <div class="card">
       <h2>Heatmap: % ผลสะสมเทียบแผนสะสม รายหมวด × โรงพยาบาล</h2>
-      <div class="legend"><span><i style="background:#16794c"></i>ดีกว่าแผนมาก</span><span><i style="background:#a6dcbf"></i>ดีกว่าแผน</span><span><i style="background:#eef2f6"></i>ภายในเกณฑ์</span><span><i style="background:#f6b3ab"></i>แย่กว่าแผน</span><span><i style="background:#b42318"></i>แย่กว่าแผนมาก</span><span><i style="background:#fff;border:1px dashed #98a2b3"></i>ไม่มีแผน/ไม่มีผล</span></div>
+      <div class="legend"><span><i style="background:#a6dcbf"></i>อยู่ในช่วง ±<span class="thrv">5</span>% (ผ่าน)</span><span><i style="background:#f6b3ab"></i>เกิน ±<span class="thrv">5</span>% ไม่เกิน ±30%</span><span><i style="background:#b42318"></i>เกิน ±30%</span><span><i style="background:#fff;border:1px dashed #98a2b3"></i>ไม่มีแผน/ไม่มีผล</span></div>
       <label class="chk" style="font-size:13px"><input type="checkbox" id="hmSide"> แสดงเฉพาะหมวดรายได้ </label>
       <div class="tbl-wrap"><table class="hm" id="hmTbl"></table></div>
     </div>
@@ -191,10 +191,10 @@ function status(a,pt,side){
   if(pt===0&&a===0) return {k:'neu',t:'–',good:0};
   if(pt===0) return {k:'warn',t:'ไม่มีแผน',good:0};
   const d=dev(a,pt);
-  if(Math.abs(d)<=thr) return {k:'neu',t:'ตามแผน',good:0,pass:true};
-  const better= side==='R'? d>0 : d<0;
+  // สี: อยู่ในช่วง ±เกณฑ์ = เขียว (ผ่าน), เกิน ±เกณฑ์ = แดง (ไม่ผ่าน)
+  if(Math.abs(d)<=thr) return {k:'good',t:'ตามแผน',good:1,pass:true};
   const t= side==='R' ? (d>0?'สูงกว่าแผน':'ต่ำกว่าแผน') : (d>0?'เกินแผน':'ต่ำกว่าแผน');
-  return {k:better?'good':'bad',t,good:better?1:-1,pass:false};
+  return {k:'bad',t,good:-1,pass:false};
 }
 const badge=s=>`<span class="badge b-${s.k}">${s.t}</span>`;
 function sideOf(p){return EXP.includes(p)?'E':'R'}
@@ -425,7 +425,7 @@ function heatColor(s,d){
   if(d==null)return['#fff','#98a2b3'];
   if(s.k==='neu')return['#eef2f6','#344054'];
   const strong=Math.abs(d)>0.3;
-  if(s.k==='good')return strong?['#16794c','#fff']:['#a6dcbf','#0b4a2c'];
+  if(s.k==='good')return['#a6dcbf','#0b4a2c'];
   return strong?['#b42318','#fff']:['#f6b3ab','#7a1a12'];
 }
 function renderHeat(){
@@ -485,6 +485,7 @@ window.addEventListener('hashchange',showTab);
 
 function render(){renderAll()}
 function renderAll(){
+  document.querySelectorAll('.thrv').forEach(e=>e.textContent=st.thr);
   const hs=selHosp();curHs=hs;
   const ag=aggLines(hs);curAg=ag;const byP=aggP(ag);
   renderKpis(totals(byP));
