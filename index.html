@@ -33,9 +33,6 @@ header.top .pace{display:inline-block;margin-top:8px;background:rgba(255,255,255
 .kpi .v{font-size:24px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
 .kpi .s{font-size:12.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
 .kpi .badge{position:absolute;top:10px;right:10px}
-.kpi .bar{height:8px;background:var(--neutral-bg);border-radius:6px;margin-top:8px;position:relative}
-.kpi .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
-.kpi .bar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
 .badge{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap}
 .b-good{background:var(--good-bg);color:var(--good)}.b-bad{background:var(--bad-bg);color:var(--bad)}
 .b-neu{background:var(--neutral-bg);color:var(--neutral)}.b-warn{background:var(--warn-bg);color:var(--warn)}
@@ -56,12 +53,19 @@ tr.grp td{background:#eef3fb;font-weight:700;color:var(--navy)}
 tr.tot td{background:#f2f4f7;font-weight:700}
 tr.prow{cursor:pointer}tr.prow:hover td{background:#f9fafb}
 tr.sub td{font-size:13px;color:#344054;background:#fcfcfd}
-tr.sub td.l{padding-left:26px}
+tr.sub td.l:first-child{padding-left:26px}
+tr.sub td:first-child,tr.prow td:first-child{white-space:normal;min-width:260px;max-width:380px}
 .caret{display:inline-block;width:14px;color:var(--muted);transition:transform .15s}
 tr.open .caret{transform:rotate(90deg)}
-.pbar{width:120px;height:10px;background:var(--neutral-bg);border-radius:6px;position:relative;display:inline-block;vertical-align:middle}
-.pbar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
-.pbar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:#344054}
+.bul{position:relative;height:16px;width:170px;background:#fbe4e1;border-radius:4px;display:inline-block;vertical-align:middle}
+.kpi .bul{display:block;width:100%;margin-top:10px;height:18px}
+.bul .band{position:absolute;top:0;bottom:0;background:#c9ecd8}
+.bul .tg{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#101828}
+.bul .seg{position:absolute;top:6px;height:4px;border-radius:2px}
+.kpi .bul .seg{top:7px}
+.bul .dot{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.bul .arr{position:absolute;top:50%;margin-top:-7px;font-size:11px;line-height:14px;font-weight:700}
+.bul-scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px}
 .pos{color:var(--good)}.neg{color:var(--bad)}
 .chart{width:100%}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -114,7 +118,7 @@ footer a{color:var(--navy2)}
     </div>
     <div class="card">
       <h2>ตารางรายหมวด (คลิกหมวดเพื่อดูรายบรรทัด)</h2>
-      <p class="note">แผนสะสม = แผนทั้งปี × <span class="mfrac"></span> · % เทียบแผนสะสม = (ผลสะสม − แผนสะสม) ÷ |แผนสะสม| · % ของแผนทั้งปี เทียบกับค่าที่ควรเป็น <span class="mpct"></span></p>
+      <p class="note">แผนสะสม = แผนทั้งปี × <span class="mfrac"></span> · % เทียบแผนสะสม = (ผลสะสม − แผนสะสม) ÷ |แผนสะสม| · % ของแผนทั้งปี เทียบกับค่าที่ควรเป็น <span class="mpct"></span> · แถบ "ผลงานเทียบเป้า": เส้นดำกึ่งกลาง = แผนสะสม, พื้นเขียว = ช่วง ±<span class="thrv">5</span>%, จุด = ผลงานเบ้ไปทางต่ำ (ซ้าย) หรือสูง (ขวา), ลูกศร = เกิน ±50%</p>
       <div class="tbl-wrap"><table id="catTbl"></table></div>
     </div>
   </section>
@@ -196,6 +200,22 @@ function status(a,pt,side){
   const t= side==='R' ? (d>0?'สูงกว่าแผน':'ต่ำกว่าแผน') : (d>0?'เกินแผน':'ต่ำกว่าแผน');
   return {k:'bad',t,good:-1,pass:false};
 }
+// แถบเทียบเป้า: เป้า(แผนสะสม)อยู่กึ่งกลาง, พื้นเขียว = ช่วง ±เกณฑ์, พื้นแดงอ่อน = นอกเกณฑ์, จุด = ผลงานเบ้ไปทางใด
+const BUL_R=0.5;
+function bullet(d,s,withScale){
+  const thr=st.thr/100,bw=Math.min(50,thr/BUL_R*50);
+  let h=`<span class="bul" title="กึ่งกลาง = แผนสะสม (เป้า) · พื้นเขียว = ช่วง ±${st.thr}% · ขอบซ้าย/ขวา = −/+${BUL_R*100}%${d==null?'':' · ผล '+pctS(d)}"><i class="band" style="left:${50-bw}%;width:${bw*2}%"></i>`;
+  if(d!=null&&isFinite(d)){
+    const c=s.k==='bad'?'var(--bad)':s.k==='good'?'var(--good)':'#667085';
+    const v=Math.max(-BUL_R,Math.min(BUL_R,d)),x=50+v/BUL_R*50;
+    h+=`<i class="seg" style="left:${Math.min(50,x)}%;width:${Math.abs(x-50)}%;background:${c}"></i>`;
+    if(Math.abs(d)>BUL_R) h+=`<i class="arr" style="${d>0?'right:1px':'left:1px'};color:${c}">${d>0?'▶':'◀'}</i>`;
+    else h+=`<i class="dot" style="left:${x}%;background:${c}"></i>`;
+  }
+  h+=`<i class="tg" style="left:50%"></i></span>`;
+  if(withScale)h+=`<div class="bul-scale"><span>−${BUL_R*100}%</span><span>ต่ำกว่าเป้า ← เป้า (แผนสะสม) → สูงกว่าเป้า</span><span>+${BUL_R*100}%</span></div>`;
+  return h;
+}
 const badge=s=>`<span class="badge b-${s.k}">${s.t}</span>`;
 function sideOf(p){return EXP.includes(p)?'E':'R'}
 
@@ -267,7 +287,7 @@ function kpiCard(title,a,pt,pYear,side,extra){
   <div class="v">${fmtM(a)}</div>
   <div class="s">แผนสะสม ${fmtM(pt)} · <b class="${s.good>0?'pos':s.good<0?'neg':''}">${pctS(d)}</b></div>
   <div class="s">${pYear?'ได้ '+(ofYear*100).toFixed(1)+'% ของแผนทั้งปี '+fmtM(pYear):''}${extra||''}</div>
-  <div class="bar" title="เส้นดำ = ระดับที่ควรเป็นตามสัดส่วนเดือน"><i style="width:${(w*100).toFixed(1)}%;background:${s.k==='bad'?'var(--bad)':s.k==='good'?'var(--good)':'var(--act)'}"></i><b style="left:50%"></b></div></div>`;
+  ${bullet(d,s,true)}</div></div>`;
 }
 function niCard(title,o){
   const pt=o.P*FR,d=o.A-pt;
@@ -283,7 +303,7 @@ function renderKpis(t){
   let card=kpiCard('รายได้รวม (ผลสะสม)',t.rev.A,t.rev.P*FR,t.rev.P,'R','');
   if(st.ucx){const s=status(ev.A,ev.P*FR,'R'),d=dev(ev.A,ev.P*FR);
     card=card.replace(/<span class="badge[^>]*>[^<]*<\/span>/,`<span class="badge b-${s.k}" title="${lbl}">${s.t}*</span>`)
-      .replace('<div class="bar"',`<div class="s">*${lbl}: ผล ${fmtM(ev.A)} / แผนสะสม ${fmtM(ev.P*FR)} · <b class="${s.good>0?'pos':s.good<0?'neg':''}">${pctS(d)}</b></div><div class="bar"`);}
+      .replace('<span class="bul"',`<div class="s">*${lbl}: ผล ${fmtM(ev.A)} / แผนสะสม ${fmtM(ev.P*FR)} · <b class="${s.good>0?'pos':s.good<0?'neg':''}">${pctS(d)}</b></div><span class="bul"`).replace(/<span class="bul"[\s\S]*?<\/span><div class="bul-scale">/,bullet(d,s,false)+'<div class="bul-scale">');}
   $('#kpis').innerHTML=card
    +kpiCard('ค่าใช้จ่ายรวม (ผลสะสม)',t.exp.A,t.exp.P*FR,t.exp.P,'E')
    +niCard('รายได้สูง(ต่ำ)กว่าค่าใช้จ่าย (NI)',t.ni)
@@ -300,11 +320,11 @@ function renderCategory(hs,ag,byP){
   drawCatChart([...rv,...ex].filter(r=>r.P!==0||r.A!==0));
   const inTot=r=>!(st.autox&&(r.p==='P121'||r.p==='P251'));
   const sumRow=(arr0,label,side)=>{const arr=arr0.filter(inTot);const P=arr.reduce((s,r)=>s+r.P,0),A=arr.reduce((s,r)=>s+r.A,0);return {label,P,Pt:P*FR,A,side}};
-  let h=`<thead><tr><th class="l">หมวด</th><th>แผนทั้งปี</th><th>แผนสะสม (${M} เดือน)</th><th>ผลสะสม</th><th>ผลต่าง</th><th>% เทียบแผนสะสม</th><th>% ของแผนทั้งปี</th><th class="l">ความก้าวหน้า</th><th class="l">สถานะ</th></tr></thead><tbody>`;
+  let h=`<thead><tr><th class="l">หมวด</th><th>แผนทั้งปี</th><th>แผนสะสม (${M} เดือน)</th><th>ผลสะสม</th><th>ผลต่าง</th><th>% เทียบแผนสะสม</th><th class="l" title="กึ่งกลาง = เป้า (แผนสะสม), พื้นเขียว = ช่วงผ่านเกณฑ์, ขอบ = ±50%">ผลงานเทียบเป้า (±50%)</th><th>% ของแผนทั้งปี</th><th class="l">สถานะ</th></tr></thead><tbody>`;
   const rowHtml=(r,cls,label)=>{
     const s=status(r.A,r.Pt,r.side),d=dev(r.A,r.Pt),oy=r.P?r.A/r.P:null;
     const w=oy==null?0:Math.max(0,Math.min(1,oy/(FR*2)));
-    return `<tr class="${cls}" data-p="${r.p||''}"><td class="l">${label}</td><td>${fmt(r.P)}</td><td>${fmt(r.Pt)}</td><td>${fmt(r.A)}</td><td class="${s.good>0?'pos':s.good<0?'neg':''}">${fmt(r.A-r.Pt)}</td><td class="${s.good>0?'pos':s.good<0?'neg':''}">${pctS(d)}</td><td>${oy==null?'–':(oy*100).toFixed(1)+'%'}</td><td class="l"><span class="pbar"><i style="width:${(w*100).toFixed(1)}%;background:${s.k==='bad'?'var(--bad)':s.k==='good'?'var(--good)':'var(--act)'}"></i><b style="left:50%"></b></span></td><td class="l">${badge(s)}</td></tr>`;
+    return `<tr class="${cls}" data-p="${r.p||''}"><td class="l">${label}</td><td>${fmt(r.P)}</td><td>${fmt(r.Pt)}</td><td>${fmt(r.A)}</td><td class="${s.good>0?'pos':s.good<0?'neg':''}">${fmt(r.A-r.Pt)}</td><td class="${s.good>0?'pos':s.good<0?'neg':''}">${pctS(d)}</td><td class="l">${bullet(d,s,false)}</td><td>${oy==null?'–':(oy*100).toFixed(1)+'%'}</td><td class="l">${badge(s)}</td></tr>`;
   };
   const subRows=(p)=>{
     const idx=(lineIdx[p]||[]).filter(i=>ag.P[i]!==0||ag.A[i]!==0);
@@ -502,7 +522,7 @@ const calY=(+D.fy-1)+(M>=4?1:0);
 $('#asof').textContent=`ณ สิ้นเดือน ${D.mname} ${M<=3?(+D.fy-1):D.fy} (เดือนที่ ${M} ของปีงบประมาณ)`;
 $('#pace').textContent=`เดือนที่ผ่านไป ${M}/12 → แผนสะสมที่ควรเป็น = ${(FR*100).toFixed(2)}% ของแผนทั้งปี`;
 document.querySelectorAll('.mfrac').forEach(e=>e.textContent=`${M}/12`);
-document.querySelectorAll('.mpct').forEach(e=>e.textContent=`${(FR*100).toFixed(2)}% (เส้นดำกลางแถบ)`);
+document.querySelectorAll('.mpct').forEach(e=>e.textContent=`${(FR*100).toFixed(2)}%`);
 initFilters();showTab();
 </script>
 </body>
