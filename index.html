@@ -78,6 +78,20 @@ tr.open .caret{transform:rotate(90deg)}
 .hm td.l{text-align:left;font-size:13px;min-width:180px;background:#fff}
 .hm tr:hover td.l{background:#f2f4f7}
 .lnk{color:var(--navy2);cursor:pointer;text-decoration:underline dotted}
+.grpcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.gcard{cursor:pointer;border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;padding:10px 12px;background:#fff;transition:.15s}
+.gcard:hover{background:var(--bg)}
+.gcard.on{background:var(--bg);box-shadow:0 0 0 2px var(--c) inset}
+.gcard .gn{font-size:26px;font-weight:700;color:var(--c);line-height:1.1}
+.gcard .gn span{font-size:13px;font-weight:500;color:var(--muted)}
+.gcard .gt{font-weight:700;margin-top:2px}
+.gcard .gs{font-size:12px;color:var(--muted)}
+.glist{margin-top:10px;border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.glh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.glh .btn{margin-left:auto}
+.chip{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin:0 6px 6px 0;cursor:pointer;font-size:13px}
+.chip:hover{border-color:var(--c)}
+.chip small{color:var(--muted);font-size:11.5px}
 .counts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .counts div{background:var(--neutral-bg);border-radius:10px;padding:8px 12px;font-size:13px}
 .counts b{font-size:18px;margin-right:4px}
@@ -125,8 +139,8 @@ footer a{color:var(--navy2)}
 
   <section class="panel" id="p-hospitals">
     <div class="card">
-      <h2>สรุปผลการประเมินรายโรงพยาบาล</h2>
-      <div class="counts" id="hCounts"></div>
+      <h2>สรุปผลการประเมินรายโรงพยาบาล</h2><p class="note">กดการ์ดเพื่อดูว่าโรงพยาบาลใดอยู่ในกลุ่มนั้น · ผ่าน = % เทียบแผนสะสมอยู่ในช่วง ±เกณฑ์<span class="ucn"></span></p>
+      <div id="hCounts"></div>
       <div class="grid2">
         <div><p class="note">ตำแหน่งของแต่ละโรงพยาบาล: แกนนอน = % รายได้เทียบแผนสะสม, แกนตั้ง = % ค่าใช้จ่ายเทียบแผนสะสม · จุดเขียว = NI ดีกว่าแผนสะสม, จุดแดง = NI ต่ำกว่าแผนสะสม · กรอบประ = ช่วงผ่านเกณฑ์ (คลิกจุดเพื่อเลือกโรงพยาบาล)</p><div id="scatter" class="chart"></div></div>
         <div><p class="note">ผลต่าง NI (รายได้ − ค่าใช้จ่าย) ผลสะสมเทียบแผนสะสม (บาท) เรียงจากแย่ที่สุด</p><div id="niChart" class="chart"></div></div>
@@ -184,7 +198,7 @@ const $=s=>document.querySelector(s);
 const fmt=n=>(n==null||isNaN(n))?'–':Math.round(n).toLocaleString('th-TH');
 const fmtM=n=>{if(n==null||isNaN(n))return'–';const a=Math.abs(n);if(a>=1e6)return(n/1e6).toLocaleString('th-TH',{maximumFractionDigits:2})+' ล้าน';return Math.round(n).toLocaleString('th-TH')};
 const pctS=p=>(p==null||!isFinite(p))?'–':(p>0?'+':'')+(p*100).toFixed(1)+'%';
-const st={prov:'',lvl:'',hosp:'',thr:5,ucx:true,autox:true,sort:{h:['revDev',1],l:['absd',-1]},open:{}};
+const st={hgrp:'',prov:'',lvl:'',hosp:'',thr:5,ucx:true,autox:true,sort:{h:['revDev',1],l:['absd',-1]},open:{}};
 const THMONTH=['ต.ค.','พ.ย.','ธ.ค.','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.'];
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -387,10 +401,31 @@ function hospRows(){
       pass:(rs.pass&&es.pass)?2:(rs.pass||es.pass)?1:0};
   });
 }
+const GRP=[
+  {id:'both',t:'รายได้ + ค่าใช้จ่าย ผ่าน',sub:'ผ่านทั้งสองด้าน',c:'#16794c',bg:'#e7f6ee',f:r=>r.rs.pass&&r.es.pass},
+  {id:'rev',t:'รายได้ผ่านอย่างเดียว',sub:'ค่าใช้จ่ายไม่ผ่าน',c:'#0e7490',bg:'#e0f2f6',f:r=>r.rs.pass&&!r.es.pass},
+  {id:'exp',t:'ค่าใช้จ่ายผ่านอย่างเดียว',sub:'รายได้ไม่ผ่าน',c:'#b54708',bg:'#fff4e5',f:r=>!r.rs.pass&&r.es.pass},
+  {id:'none',t:'ไม่ผ่านทั้งสองด้าน',sub:'รายได้และค่าใช้จ่ายไม่ผ่าน',c:'#b42318',bg:'#fdecea',f:r=>!r.rs.pass&&!r.es.pass}];
 function renderHospitals(){
-  const rows=hospRows();
-  const n=rows.length,c=(f)=>rows.filter(f).length;
-  $('#hCounts').innerHTML=`<div><b>${n}</b>แห่ง</div><div><b class="pos">${c(r=>r.rs.pass)}</b>รายได้ผ่านเกณฑ์ ±${st.thr}%</div><div><b class="pos">${c(r=>r.es.pass)}</b>ค่าใช้จ่ายผ่านเกณฑ์</div><div><b>${c(r=>r.pass===2)}</b>ผ่านทั้งสองด้าน</div><div><b class="neg">${c(r=>r.rs.k==='bad')}</b>รายได้ต่ำกว่าแผน</div><div><b class="neg">${c(r=>r.es.k==='bad')}</b>ค่าใช้จ่ายเกินแผน</div><div><b class="neg">${c(r=>r.niA<0)}</b>NI สะสมติดลบ</div>`;
+  const all=hospRows();
+  const n=all.length;
+  const g=GRP.find(x=>x.id===st.hgrp);
+  let gh=`<div class="grpcards"><div class="gcard${!g?' on':''}" data-g="" style="--c:#16325c;--bg:#eef3fb"><div class="gn">${n}</div><div class="gt">ทั้งหมด</div><div class="gs">แสดงทุกแห่งตามตัวกรอง</div></div>`;
+  GRP.forEach(x=>{const k=all.filter(x.f).length;
+    gh+=`<div class="gcard${st.hgrp===x.id?' on':''}" data-g="${x.id}" style="--c:${x.c};--bg:${x.bg}"><div class="gn">${k}<span> แห่ง · ${n?(k/n*100).toFixed(0):0}%</span></div><div class="gt">${x.t}</div><div class="gs">${x.sub} (เกณฑ์ ±${st.thr}%)</div></div>`});
+  gh+='</div>';
+  const rows=g?all.filter(g.f):all;
+  if(g){
+    const lst=[...rows].sort((a,b)=>a.h.prov.localeCompare(b.h.prov,'th')||a.h.name.localeCompare(b.h.name,'th'));
+    gh+=`<div class="glist" style="--c:${g.c};--bg:${g.bg}"><div class="glh"><b>${g.t}</b> — ${rows.length} แห่ง <span class="muted">(คลิกชื่อเพื่อดูรายละเอียดรายหมวด · ตารางและกราฟด้านล่างแสดงเฉพาะกลุ่มนี้)</span><button class="btn" id="gclr">แสดงทั้งหมด</button></div>`+
+      (lst.length?lst.map(r=>`<span class="chip" data-c="${r.h.code}" title="รายได้ ${pctS(r.revDev)} · ค่าใช้จ่าย ${pctS(r.expDev)}">${esc(r.h.name.replace('รพ. ',''))} <small>${esc(r.h.prov)} · ร ${pctS(r.revDev)} · จ ${pctS(r.expDev)}</small></span>`).join(''):'<span class="muted">ไม่มีโรงพยาบาลในกลุ่มนี้</span>')+'</div>';
+  }
+  const c=(f)=>all.filter(f).length;
+  gh+=`<div class="counts" style="margin-top:10px"><div><b class="neg">${c(r=>r.rs.k==='bad'&&r.revDev<0)}</b>รายได้ต่ำกว่าแผนเกินเกณฑ์</div><div><b class="neg">${c(r=>r.es.k==='bad'&&r.expDev>0)}</b>ค่าใช้จ่ายเกินแผนเกินเกณฑ์</div><div><b class="neg">${c(r=>r.niA<0)}</b>NI สะสมติดลบ</div></div>`;
+  $('#hCounts').innerHTML=gh;
+  $('#hCounts').querySelectorAll('.gcard').forEach(e=>e.onclick=()=>{st.hgrp=(st.hgrp===e.dataset.g?'':e.dataset.g);renderHospitals()});
+  $('#hCounts').querySelectorAll('.chip').forEach(e=>e.onclick=()=>pickHosp(e.dataset.c));
+  const gc=$('#gclr');if(gc)gc.onclick=()=>{st.hgrp='';renderHospitals()};
   drawScatter(rows);drawNi(rows);
   const [k,dir]=st.sort.h;
   const val=(r)=>({prov:r.h.prov,name:r.h.name,lvl:r.h.lvl,revPt:(st.ucx?r.t.revx:r.t.rev).P*FR,revA:(st.ucx?r.t.revx:r.t.rev).A,revDev:r.revDev,expPt:r.t.exp.P*FR,expA:r.t.exp.A,expDev:r.expDev,niPt:r.niPt,niA:r.niA,niD:r.niD,ebA:r.ebA})[k];
@@ -505,6 +540,7 @@ window.addEventListener('hashchange',showTab);
 
 function render(){renderAll()}
 function renderAll(){
+  document.querySelectorAll('.ucn').forEach(e=>e.textContent=st.ucx?' (รายได้ประเมินแบบไม่นับ P04 UC)':'');
   document.querySelectorAll('.thrv').forEach(e=>e.textContent=st.thr);
   const hs=selHosp();curHs=hs;
   const ag=aggLines(hs);curAg=ag;const byP=aggP(ag);
